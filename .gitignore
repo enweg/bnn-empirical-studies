@@ -1,0 +1,16 @@
+**/.DS_Store
+
+empirical-var/mcmc-chains/**
+empirical-var/mcmc-chains-multiple/**
+empirical-var/bbb-objects/**
+empirical-var/bbb-objects-multiple/**
+empirical-var/data/**
+
+empirical-var-tdist/mcmc-chains/**
+empirical-var-tdist/mcmc-chains-multiple/**
+empirical-var-tdist/bbb-objects/**
+empirical-var-tdist/bbb-objects-multiple/**
+empirical-var-tdist/data/**
+
+empirical-rnnhar/data/**
+
