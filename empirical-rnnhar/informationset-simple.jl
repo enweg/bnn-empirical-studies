@@ -21,7 +21,7 @@ end
 
 logme("Starting data preparation.")
 
-df = DataFrame(CSV.File("../empirical-var/data/wide-data.csv"))
+df = DataFrame(CSV.File("./data/wide-data.csv"))
 df = @chain df begin
     @rtransform(:Date = Date(:Date[1:10]))
     @orderby(:Date)
