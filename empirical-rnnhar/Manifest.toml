@@ -126,9 +126,9 @@ version = "0.1.1"
 
 [[deps.Bijectors]]
 deps = ["ArgCheck", "ChainRulesCore", "ChangesOfVariables", "Compat", "Distributions", "Functors", "InverseFunctions", "IrrationalConstants", "LinearAlgebra", "LogExpFunctions", "MappedArrays", "Random", "Reexport", "Requires", "Roots", "SparseArrays", "Statistics"]
-git-tree-sha1 = "51c842b5a07ad64acdd6cac9e52a304b2d6605b6"
+git-tree-sha1 = "875f3845e1256ee1d9e0c8ca3993e709b32c0ed1"
 uuid = "76274a88-744f-5084-9051-94815aaf08c4"
-version = "0.10.2"
+version = "0.10.3"
 
 [[deps.Blosc]]
 deps = ["Blosc_jll"]

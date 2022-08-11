@@ -103,7 +103,10 @@ network_structures = [
 netids = repeat(1:lastindex(network_structures), 10)
 reps = repeat(1:10; inner = length(network_structures))
 
-@sync @distributed for (netid, rep) in zip(netids, reps)
+information = [(netid, rep) for (netid, rep) in zip(netids, reps)]
+
+@sync @distributed for i=1:lastindex(information)
+    netid, rep = information[i]
     logme("GGMC: Starting with network $netid repetition $rep")
     try
         Random.seed!(6150533 + rep)
@@ -131,7 +134,8 @@ end
 
 logme("Starting with BBB")
 
-@sync @distributed for (netid, rep) in zip(netids, reps)
+@sync @distributed for i=1:lastindex(information)
+    netid, rep = information[i]
     logme("BBB: Starting with network $netid repetition $rep")
     try
         net = network_structures[1]
