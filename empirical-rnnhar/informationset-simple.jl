@@ -100,10 +100,13 @@ network_structures = [
 ################################################################################
 #### GGMC Estimation
 
-@sync @distributed for netid in 1:lastindex(network_structures)
-    logme("GGMC: Starting with network $netid")
+netids = repeat(1:lastindex(network_structures), 10)
+reps = repeat(1:10; inner = length(network_structures))
+
+@sync @distributed for (netid, rep) in zip(netids, reps)
+    logme("GGMC: Starting with network $netid repetition $rep")
     try
-        Random.seed!(6150533)
+        Random.seed!(6150533 + rep)
         net = network_structures[netid]
         bnn = get_bnn(net, x_train, y_train, idx_daily, idx_weekly, idx_monthly)
 
@@ -115,11 +118,11 @@ network_structures = [
         @suppress begin
             chain = mcmc(bnn, 100, 100000, sampler; θstart = copy(θmap), showprogress = false)
             chain = chain[:, end-20_000+1:end]
-            save("chains-simple/chain-$netid.jld", "netid", netid, "chain", chain)
+            save("chains-simple/chain-$netid-rep$rep.jld", "netid", netid, "chain", chain, "rep", rep)
         end
-        logme("GGMC: Done with network $netid")
+        logme("GGMC: Done with network $netid repetition $rep")
     catch e
-        logme("GGMC: Error in network $netid ==> $e")
+        logme("GGMC: Error in network $netid repetition $rep ==> $e")
     end
 end
 
@@ -128,18 +131,18 @@ end
 
 logme("Starting with BBB")
 
-@sync @distributed for netid=1:lastindex(network_structures)
-    logme("BBB: Starting with network $netid")
+@sync @distributed for (netid, rep) in zip(netids, reps)
+    logme("BBB: Starting with network $netid repetition $rep")
     try
         net = network_structures[1]
         bnn = get_bnn(net, x_train, y_train, idx_daily, idx_weekly, idx_monthly)
-        Random.seed!(6150533)
+        Random.seed!(6150533 + rep)
         vi = bbb(bnn, 100, 100; mc_samples = 1, showprogress = false, 
             opt = Flux.RMSProp(), n_samples_convergence = 1)
-        save("bbb-objects-simple/vi-$netid.jld", "netid", netid, "bbb", vi)
-        logme("BBB: Done with network $netid")
+        save("bbb-objects-simple/vi-$netid-rep$rep.jld", "netid", netid, "bbb", vi, "rep", rep)
+        logme("BBB: Done with network $netid repetition $rep")
     catch e
-        logme("BBB: Error in network $netid ==> $e")
+        logme("BBB: Error in network $netid repetition $rep ==> $e")
     end
 end
 
