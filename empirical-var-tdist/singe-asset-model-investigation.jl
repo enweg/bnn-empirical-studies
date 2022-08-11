@@ -11,6 +11,7 @@ using DataFrames, CSV
 using Dates
 using Logging
 using SharedArrays
+using StatsPlots
 
 function get_bnn(net, x_train, y_train, nu)
     nc = destruct(net)
@@ -73,9 +74,11 @@ ypp_10, yhat_10, VaR_10, vol10 = get_yhat_VaR(1)
 ypp_649, yhat_694, VaR_694, vol649 = get_yhat_VaR(2)
 
 
-plot(yhat_10)
-plot!(yhat_694)
-plot!(y_test)
+p = plot(yhat_10, label = "nu=3", color = :black);
+p = plot!(p, yhat_694, label = "nu=30", color = :red);
+# p = plot!(p, y_test);
+p
+Plots.pdf(p, "./evaluations/results/conditional-mean.pdf")
 
 q01 = quantile(y_test, 0.001)
 q1 = quantile(y_test, 0.01)
@@ -83,12 +86,14 @@ select01 = y_test .<= q01
 select1 = y_test .<= q1
 
 findfirst(select01)
-density(ypp_10[244, :]; color = :black, label = "nu=3")
-density!(ypp_649[244, :]; color = :red, label = "nu=30")
-vline!([quantile(ypp_10[244, :], 0.1)], color = :black, linestyle = :dash)
-vline!([quantile(ypp_649[244, :], 0.1)], color = :red, linestyle = :dash)
-vline!([quantile(ypp_10[244, :], 0.001)], color = :black, linestyle = :dash)
-vline!([quantile(ypp_649[244, :], 0.001)], color = :red, linestyle = :dash)
+p = density(ypp_10[244, :]; color = :black, label = "nu=3");
+p = density!(p, ypp_649[244, :]; color = :red, label = "nu=30");
+p = vline!(p, [quantile(ypp_10[244, :], 0.1)], color = :black, linestyle = :dash, label = missing);
+p = vline!(p, [quantile(ypp_649[244, :], 0.1)], color = :red, linestyle = :dash, label = missing);
+p = vline!(p, [quantile(ypp_10[244, :], 0.001)], color = :black, linestyle = :dash, label = missing);
+p = vline!(p, [quantile(ypp_649[244, :], 0.001)], color = :red, linestyle = :dash, label = missing);
+p
+Plots.pdf(p, "./evaluations/results/posterior-preditive-distribution-obs244.pdf")
 
 mean(ypp_10[244, :])
 mean(ypp_649[244, :])

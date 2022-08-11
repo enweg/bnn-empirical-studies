@@ -6,29 +6,25 @@ using CSV
 using DataFrames
 using JLD
 using PDMats
-using Pkg
 
-@info("Starting Pkg")
-
-Pkg.activate(".")
-Pkg.add("PDMats")
-Pkg.instantiate()
-
-@info("Starting Work now")
-
-data = load("./data/multiple-asset.jld")
+data = load("data/multiple-asset.jld")
 include("./multiple_network_structures.jl")
+nus = collect(3f0:1f0:10f0)
+nus = vcat(nus, [20f0, 30f0])
 
-function get_bnn(net, x_train, y_train)
+bbb_configs = vec(collect(Iterators.product(network_structures, nus)))
+
+function get_bnn(net, x_train, y_train, nu)
     nc = destruct(net)
     prior = GaussianPrior(nc, 0.5f0)
-    like = SeqToOneNormal(nc, Gamma(2.0, 0.5))
+    like = SeqToOneTDist(nc, Gamma(2.0, 0.5), nu)
     init = InitialiseAllSame(Normal(0.0f0, 0.5f0), like, prior)
     bnn = BNN(x_train, y_train, like, prior, init)
     return bnn
 end
 
-files = readdir("./bbb-objects-multiple")
+files = readdir("./bbb-objects-multiple/")
+files = filter(x -> x != ".DS_Store", files)
 files = joinpath.("bbb-objects-multiple", files)
 
 df_all = DataFrame()
@@ -41,9 +37,11 @@ for f in files
     ch = rand(vi["bbb"][1], 20_000)
 
     net = network_structures[netid]
-    bnn = get_bnn(net, data["x-test"], data["y-test"])
-    ypp = sample_posterior_predict(bnn, ch)
+    config = match(r"net([0-9]*)\.jld", f)[1]
+    nu = bbb_configs[parse(Int, config)][2]
 
+    bnn = get_bnn(net, data["x-test"], data["y-test"], nu)
+    ypp = sample_posterior_predict(bnn, ch)
 
     VaR_levels = [0.001, 0.01, 0.05, 0.1]
     get_VaR(ypp, alpha) = [quantile(r, alpha) for r in eachrow(ypp)]
@@ -57,6 +55,7 @@ for f in files
     df = DataFrame(
         "network" => vi["netid"], 
         "rmse" => rmse, 
+        "nu" => nu,
     )
     for (key, v) in zip(keys(VaRs), values(VaRs))
         df[!, Symbol("VaR_"*replace(string(key*100), "."=>"_"))] .= mean(data["y-test"] .< v)
@@ -66,4 +65,4 @@ for f in files
 end
 
 df_all
-CSV.write("./evaluations/bbb-single-asset-multiple-all.csv", df_all)
+CSV.write("./evaluations/bbb-multiple-asset-all.csv", df_all)
