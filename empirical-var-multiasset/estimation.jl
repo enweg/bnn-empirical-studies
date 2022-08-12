@@ -63,8 +63,6 @@ logme("Done preparing data.")
 
 logme("Preparing Network definitions.")
 
-include("./multi-asset-likelihood-gaussian.jl")
-
 n_in = size(x_train, 2)
 n_out = size(y_train, 1)
 
@@ -78,6 +76,7 @@ network_structures = [
 ]
 
 @everywhere begin
+    include("./multi-asset-likelihood-gaussian.jl")
     function get_bnn(net, x, y)
         nc = destruct(net)
         prior = GaussianPrior(nc, 0.5f0)
