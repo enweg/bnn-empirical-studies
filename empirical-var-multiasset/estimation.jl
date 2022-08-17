@@ -111,63 +111,63 @@ m0s = collect(20f0:20f0:200f0)
 
 ggmc_configs = vec(collect(Iterators.product(network_structures, target_accepts, betas, steps, m0s)))
 
-# @sync @distributed for config_index=1:lastindex(ggmc_configs)
-#     logme("GGMC ==> Starting config $config_index")
-#     try
-#         config = ggmc_configs[config_index]
-#         net, target_accept, beta, step, m0 = config
-#         netid = findfirst(x -> x == net, network_structures)
+@sync @distributed for config_index=1:lastindex(ggmc_configs)
+    logme("GGMC ==> Starting config $config_index")
+    try
+        config = ggmc_configs[config_index]
+        net, target_accept, beta, step, m0 = config
+        netid = findfirst(x -> x == net, network_structures)
 
-#         bnn = get_bnn(net, x_train, y_train, m0)
+        bnn = get_bnn(net, x_train, y_train, m0)
 
-#         Random.seed!(6150533)
-#         opt = FluxModeFinder(bnn, Flux.ADAM(), ϵ = -Inf, windowlength = 5000)
-#         θmap = find_mode(bnn, 100, 1000, opt; showprogress = false)
+        Random.seed!(6150533)
+        opt = FluxModeFinder(bnn, Flux.ADAM(), ϵ = -Inf, windowlength = 5000)
+        θmap = find_mode(bnn, 100, 1000, opt; showprogress = false)
 
-#         ndraws = 50_000
-#         sadapter = DualAveragingStepSize(1f-15; adapt_steps = Int(ndraws*0.1), target_accept = target_accept)
-#         sampler = GGMC(Float32, β = beta, l = 1f-15, sadapter = sadapter, madapter = FixedMassAdapter(), steps = step)
-#         logme("GGMC ==> MCMC config $config_index")
-#         chain = mcmc(bnn, 100, ndraws, sampler; θstart = copy(θmap))
+        ndraws = 50_000
+        sadapter = DualAveragingStepSize(1f-15; adapt_steps = Int(ndraws*0.1), target_accept = target_accept)
+        sampler = GGMC(Float32, β = beta, l = 1f-15, sadapter = sadapter, madapter = FixedMassAdapter(), steps = step)
+        logme("GGMC ==> MCMC config $config_index")
+        chain = mcmc(bnn, 100, ndraws, sampler; θstart = copy(θmap))
 
-#         keep = 20_000
-#         chain = chain[:, end-keep+1:end]
-#         save("mcmc-chains/chain-$config_index.jld", "netid", netid, "chain", chain)
+        keep = 20_000
+        chain = chain[:, end-keep+1:end]
+        save("mcmc-chains/chain-$config_index.jld", "netid", netid, "chain", chain)
 
-#         logme("GGMC ==> Posterior Predictive config $config_index")
-#         ypp = sample_posterior_predict(bnn, chain; x = x_test)
-#         pfolio_return_hat = vec(mean(ypp; dims = 2))
-#         pfolio_return = vec(mean(y_test; dims = 1))
+        logme("GGMC ==> Posterior Predictive config $config_index")
+        ypp = sample_posterior_predict(bnn, chain; x = x_test)
+        pfolio_return_hat = vec(mean(ypp; dims = 2))
+        pfolio_return = vec(mean(y_test; dims = 1))
 
-#         rmse = sqrt(mean(abs2, (pfolio_return .- pfolio_return_hat)/scaling_factor))
+        rmse = sqrt(mean(abs2, (pfolio_return .- pfolio_return_hat)/scaling_factor))
 
-#         VaR_levels = SharedArray([0.001, 0.01, 0.05, 0.1])
-#         get_VaR(ypp, alpha) = [quantile(r, alpha) for r in eachrow(ypp)]
-#         VaRs = Dict(alpha => get_VaR(ypp, alpha) for alpha in VaR_levels)
+        VaR_levels = SharedArray([0.001, 0.01, 0.05, 0.1])
+        get_VaR(ypp, alpha) = [quantile(r, alpha) for r in eachrow(ypp)]
+        VaRs = Dict(alpha => get_VaR(ypp, alpha) for alpha in VaR_levels)
 
-#         df = DataFrame(
-#             "config" => config_index,
-#             "netid" => netid,
-#             "rmse" => rmse,
-#             "m0" => m0,
-#         )
-#         for (key, v) in zip(keys(VaRs), values(VaRs))
-#             df[!, Symbol("VaR_"*replace(string(key*100), "."=>"_"))] .= mean(pfolio_return .< v)
-#         end
+        df = DataFrame(
+            "config" => config_index,
+            "netid" => netid,
+            "rmse" => rmse,
+            "m0" => m0,
+        )
+        for (key, v) in zip(keys(VaRs), values(VaRs))
+            df[!, Symbol("VaR_"*replace(string(key*100), "."=>"_"))] .= mean(pfolio_return .< v)
+        end
 
-#         CSV.write("evaluations/mcmc-single-chain-config$config_index.csv", df)
-#         logme("GGMC ==> Done config $config_index")
-#     catch e
-#         logme("GGMC ==> Error in config $config_index ==> $e")
-#     end
-# end
+        CSV.write("evaluations/mcmc-single-chain-config$config_index.csv", df)
+        logme("GGMC ==> Done config $config_index")
+    catch e
+        logme("GGMC ==> Error in config $config_index ==> $e")
+    end
+end
 
-# logme("GGMC ==> Merging all evaluation files")
-# files = readdir("./evaluations/")
-# files = filter(x -> occursin("mcmc-single-chain-config", x), files)
-# files = ["./evaluations/$f" for f in files]
-# evaluation = DataFrame(CSV.File(files))
-# CSV.write("./evaluations/mcmc-single-chain-all.csv", evaluation)
+logme("GGMC ==> Merging all evaluation files")
+files = readdir("./evaluations/")
+files = filter(x -> occursin("mcmc-single-chain-config", x), files)
+files = ["./evaluations/$f" for f in files]
+evaluation = DataFrame(CSV.File(files))
+CSV.write("./evaluations/mcmc-single-chain-all.csv", evaluation)
 
 ################################################################################
 #### BBB Estimation and Evaluation

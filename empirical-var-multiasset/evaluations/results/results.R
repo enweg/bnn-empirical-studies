@@ -65,7 +65,7 @@ p <- all %>%
   geom_boxplot(aes(x = netid, y = values, fill = kind), alpha = 0.5) + 
   geom_hline(aes(yintercept = garch11, color = "Garch(1, 1)"), size = 1) + 
   geom_hline(aes(yintercept = target, color = "Target"), linetype = "dotted", size = 1) + 
-  facet_grid(rows = vars(method), cols = vars(measure), scales = "free") + 
+  facet_grid(cols = vars(method), rows = vars(measure), scales = "free") + 
   scale_color_manual(values = c("Target" = "black", "Garch(1, 1)" = "red")) +
   scale_y_continuous(labels = scales::percent) + 
   guides(color = guide_legend(title = ""), 
