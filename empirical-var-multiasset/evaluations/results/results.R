@@ -6,8 +6,13 @@ path <- "../"
 files <- list.files(path)
 files <- files[str_detect(files, "mcmc-single-chain-config")]
 
-df <- do.call(rbind, lapply(paste0(path, files), fread))
-df <- as_tibble(df)
+ggmc <- do.call(rbind, lapply(paste0(path, files), fread))
+ggmc <- as_tibble(ggmc)
+ggmc_long <- ggmc %>%
+  select(-config) %>%
+  pivot_longer(cols = c(rmse, starts_with("VaR")), 
+               names_to = "measure", 
+               values_to = "GGMC")
 
 baseline <- read_csv("../garch11-baseline-multiple.csv")
 baseline <- baseline %>%
@@ -16,6 +21,16 @@ baseline <- baseline %>%
                names_to = "measure", 
                values_to = "garch11")
 
+files <- list.files(path)
+files <- files[str_detect(files, "bbb-single-chain-config")]
+bbb <- do.call(function(...) rbind(..., fill = TRUE), lapply(paste0(path, files), fread))
+bbb <- as_tibble(bbb)
+bbb_long <- bbb %>%
+  select(-config) %>%
+  pivot_longer(cols = c(rmse, starts_with("VaR")), 
+               names_to = "measure", 
+               values_to = "BBB")
+  
 var_translate = c(
   "VaR_0_1" = "VaR 0.1%", 
   "VaR_1_0" = "VaR 1%", 
@@ -30,29 +45,28 @@ var_target = c(
   "VaR_10_0" = 0.1
 )
 
-df <- df %>%
-  group_by(netid) %>%
-  summarise(n = n(), 
-            across(.cols = c(rmse, starts_with("VaR")), 
-                   .fns = mean)) %>%
-  mutate(kind = ifelse(netid <= 3, "RNN", "LSTM"))
+var_ordering <- c("VaR 0.1%", "VaR 1%", "VaR 5%", "VaR 10%")
 
-p <- df %>%
-  mutate(netid = as.character(netid)) %>%
-  select(netid, kind, starts_with("VaR"), kind) %>%
-  pivot_longer(cols = starts_with("VaR"), 
-               names_to = "measure", 
+all <- ggmc_long %>%
+  left_join(bbb_long, by = c("netid", "m0", "measure")) %>%
+  left_join(baseline, by = "measure")
+
+p <- all %>%
+  pivot_longer(cols = c(GGMC, BBB), 
+               names_to = "method", 
                values_to = "values") %>%
-  left_join(baseline, by = "measure") %>%
-  mutate(target = var_target[measure], 
-         measure = var_translate[measure]) %>%
+  filter(measure != "rmse") %>%
+  mutate(netid = as.character(netid), 
+         target = var_target[measure], 
+         measure = var_translate[measure],
+         measure = factor(measure, levels = var_ordering), 
+         kind = ifelse(netid <= 2, "RNN", "LSTM")) %>%
   ggplot() + 
-  geom_col(aes(x = netid, y = values, fill = kind), alpha = 0.5, width = 0.7) + 
-  geom_hline(aes(yintercept = target, color = "Target"), linetype = "dotted") + 
-  geom_hline(aes(yintercept = garch11, color = "Garch(1, 1)"), linetype = "solid") + 
-  facet_wrap(vars(measure)) + 
-  scale_color_manual(values = c("Garch(1, 1)" = "red", 
-                                "Target" = "black")) + 
+  geom_boxplot(aes(x = netid, y = values, fill = kind), alpha = 0.5) + 
+  geom_hline(aes(yintercept = garch11, color = "Garch(1, 1)"), size = 1) + 
+  geom_hline(aes(yintercept = target, color = "Target"), linetype = "dotted", size = 1) + 
+  facet_grid(rows = vars(method), cols = vars(measure), scales = "free") + 
+  scale_color_manual(values = c("Target" = "black", "Garch(1, 1)" = "red")) +
   scale_y_continuous(labels = scales::percent) + 
   guides(color = guide_legend(title = ""), 
          fill = guide_legend(title = "Network Type")) + 
@@ -60,13 +74,60 @@ p <- df %>%
   theme_bw() + 
   theme(legend.position = "top")
 p
-ggsave("./same-network.pdf", plot = p, device = "pdf")
+ggsave("./same-network.pdf", plot = p, device = "pdf", width = 15, height = 7)
 
 
 
-### variance comparison
-sd_approach2 <- read_csv("../pfolio-sds.csv")
-mean(sd_approach2$sd)
+p <- all %>%
+  pivot_longer(cols = c(GGMC, BBB), 
+               names_to = "method", 
+               values_to = "values") %>%
+  filter(measure != "rmse") %>%
+  mutate(netid = as.character(netid), 
+         m0 = factor(as.character(m0), levels = as.character(sort(unique(m0)))),
+         target = var_target[measure], 
+         measure = var_translate[measure],
+         measure = factor(measure, levels = var_ordering), 
+         kind = ifelse(netid <= 2, "RNN", "LSTM")) %>%
+  ggplot() + 
+  geom_boxplot(aes(x = m0, y = values, fill = kind), alpha = 0.5) + 
+  geom_hline(aes(yintercept = garch11, color = "Garch(1, 1)"), size = 1) + 
+  geom_hline(aes(yintercept = target, color = "Target"), linetype = "dotted", size = 1) + 
+  facet_grid(cols = vars(method), rows = vars(measure), scales = "free") + 
+  scale_color_manual(values = c("Target" = "black", "Garch(1, 1)" = "red")) +
+  scale_y_continuous(labels = scales::percent) + 
+  guides(color = guide_legend(title = ""), 
+         fill = guide_legend(title = "Network Type")) + 
+  xlab("DF of Inverse Wishart") + ylab("% test data falling below VaR") +
+  theme_bw() + 
+  theme(legend.position = "top")
+p
+ggsave("./same-df.pdf", plot = p, device = "pdf", width = 15, height = 7)
 
-sd_approach1 <- read_csv("../../../empirical-var/evaluations/pfolio-sds.csv")
-mean(sd_approach1$sd)
+
+p <- all %>%
+  pivot_longer(cols = c(GGMC, BBB), 
+               names_to = "method", 
+               values_to = "values") %>%
+  filter(measure != "rmse") %>%
+  filter(m0 != 20) %>%
+  mutate(netid = as.character(netid), 
+         m0 = factor(as.character(m0), levels = as.character(sort(unique(m0)))),
+         target = var_target[measure], 
+         measure = var_translate[measure],
+         measure = factor(measure, levels = var_ordering), 
+         kind = ifelse(netid <= 2, "RNN", "LSTM")) %>%
+  ggplot() + 
+  geom_boxplot(aes(x = m0, y = values, fill = kind), alpha = 0.5) + 
+  geom_hline(aes(yintercept = garch11, color = "Garch(1, 1)"), size = 1) + 
+  geom_hline(aes(yintercept = target, color = "Target"), linetype = "dotted", size = 1) + 
+  facet_grid(cols = vars(method), rows = vars(measure), scales = "free") + 
+  scale_color_manual(values = c("Target" = "black", "Garch(1, 1)" = "red")) +
+  scale_y_continuous(labels = scales::percent) + 
+  guides(color = guide_legend(title = ""), 
+         fill = guide_legend(title = "Network Type")) + 
+  xlab("DF of Inverse Wishart") + ylab("% test data falling below VaR") +
+  theme_bw() + 
+  theme(legend.position = "top")
+p
+ggsave("./same-df-less20.pdf", plot = p, device = "pdf", width = 15, height = 7)

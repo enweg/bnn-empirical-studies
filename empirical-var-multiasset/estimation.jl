@@ -173,6 +173,9 @@ ggmc_configs = vec(collect(Iterators.product(network_structures, target_accepts,
 #### BBB Estimation and Evaluation
 
 logme("Starting BBB")
+@everywhere begin
+    include("my-bbb.jl")
+end
 
 bbb_configs = vec(collect(Iterators.product(network_structures, m0s)))
 @sync @distributed for config=1:lastindex(bbb_configs)
@@ -184,7 +187,7 @@ bbb_configs = vec(collect(Iterators.product(network_structures, m0s)))
 
         logme("BBB ==> Estimating config $config")
         Random.seed!(6150533)
-        vi = bbb(bnn, 100, 1000; opt = Flux.ADAM(1f-35), n_samples_convergence = 1)
+        vi = mybbb(bnn, 1000, 500; opt = Flux.ADAGrad(), n_samples_convergence = 1)
         save("./bbb-objects/vi-$config.jld", "bbb", vi, "netid", netid, "config", config, "m0", m0)
 
         logme("BBB ==> Evaluating config $config")
