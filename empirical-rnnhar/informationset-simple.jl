@@ -42,6 +42,7 @@ end
 idx_daily = findfirst(x -> x == "rv5_SPX", names(df)) - 1
 idx_weekly = findfirst(x -> x == "rv5_SPX_weekly", names(df)) - 1
 idx_monthly = findfirst(x -> x == "rv5_SPX_monthly", names(df)) - 1
+idx_spx = findfirst(x -> x == "return_SPX", names(df)) - 1 
 data = Matrix(df[:, 2:end])
 dates = df[!, :Date]
 
@@ -52,12 +53,16 @@ tensor = BFlux.make_rnn_tensor(data, seq_len)
 tensor = Float32.(tensor)
 y = tensor[end, idx_daily, :]
 x = tensor[1:end-1, :, :]
+spx = tensor[end, idx_spx, :]
+
 
 test_from_index = findfirst(d -> d >= Date("2019-01-01"), dates) - seq_len
 y_train = y[1:test_from_index-1]
 y_test = y[test_from_index:end]
 x_train = x[:, :, 1:test_from_index-1]
 x_test = x[:, :, test_from_index:end]
+spx_train = spx[1:test_from_index-1]
+spx_test = spx[test_from_index:end]
 
 save(
     "data/informationset-simple.jld", 
@@ -67,7 +72,9 @@ save(
     "x-test", x_test, 
     "idx_daily", idx_daily, 
     "idx_weekly", idx_weekly, 
-    "idx_monthly", idx_monthly
+    "idx_monthly", idx_monthly, 
+    "spx-train", spx_train, 
+    "spx-test", spx_test,
 )
 
 logme("Finished data preparation")
@@ -105,29 +112,29 @@ reps = repeat(1:10; inner = length(network_structures))
 
 information = [(netid, rep) for (netid, rep) in zip(netids, reps)]
 
-@sync @distributed for i=1:lastindex(information)
-    netid, rep = information[i]
-    logme("GGMC: Starting with network $netid repetition $rep")
-    try
-        Random.seed!(6150533 + rep)
-        net = network_structures[netid]
-        bnn = get_bnn(net, x_train, y_train, idx_daily, idx_weekly, idx_monthly)
+# @sync @distributed for i=1:lastindex(information)
+#     netid, rep = information[i]
+#     logme("GGMC: Starting with network $netid repetition $rep")
+#     try
+#         Random.seed!(6150533 + rep)
+#         net = network_structures[netid]
+#         bnn = get_bnn(net, x_train, y_train, idx_daily, idx_weekly, idx_monthly)
 
-        opt = FluxModeFinder(bnn, Flux.RMSProp())
-        θmap = find_mode(bnn, 100, 1000, opt; showprogress = false)
+#         opt = FluxModeFinder(bnn, Flux.RMSProp())
+#         θmap = find_mode(bnn, 100, 1000, opt; showprogress = false)
 
-        sadapter = DualAveragingStepSize(1f-15; target_accept = 0.5f0, adapt_steps = 10000)
-        sampler = GGMC(Float32; β = 0.5f0, l = 1f-15, sadapter = sadapter, madapter = FixedMassAdapter(), steps = 3)
-        @suppress begin
-            chain = mcmc(bnn, 100, 100000, sampler; θstart = copy(θmap), showprogress = false)
-            chain = chain[:, end-20_000+1:end]
-            save("chains-simple/chain-$netid-rep$rep.jld", "netid", netid, "chain", chain, "rep", rep)
-        end
-        logme("GGMC: Done with network $netid repetition $rep")
-    catch e
-        logme("GGMC: Error in network $netid repetition $rep ==> $e")
-    end
-end
+#         sadapter = DualAveragingStepSize(1f-15; target_accept = 0.5f0, adapt_steps = 10000)
+#         sampler = GGMC(Float32; β = 0.5f0, l = 1f-15, sadapter = sadapter, madapter = FixedMassAdapter(), steps = 3)
+#         @suppress begin
+#             chain = mcmc(bnn, 100, 100000, sampler; θstart = copy(θmap), showprogress = false)
+#             chain = chain[:, end-20_000+1:end]
+#             save("chains-simple/chain-$netid-rep$rep.jld", "netid", netid, "chain", chain, "rep", rep)
+#         end
+#         logme("GGMC: Done with network $netid repetition $rep")
+#     catch e
+#         logme("GGMC: Error in network $netid repetition $rep ==> $e")
+#     end
+# end
 
 ################################################################################
 #### BBB
@@ -141,7 +148,7 @@ logme("Starting with BBB")
         net = network_structures[1]
         bnn = get_bnn(net, x_train, y_train, idx_daily, idx_weekly, idx_monthly)
         Random.seed!(6150533 + rep)
-        vi = bbb(bnn, 100, 100; mc_samples = 1, showprogress = false, 
+        vi = bbb(bnn, 100, 1000; mc_samples = 1, showprogress = false, 
             opt = Flux.RMSProp(), n_samples_convergence = 1)
         save("bbb-objects-simple/vi-$netid-rep$rep.jld", "netid", netid, "bbb", vi, "rep", rep)
         logme("BBB: Done with network $netid repetition $rep")
