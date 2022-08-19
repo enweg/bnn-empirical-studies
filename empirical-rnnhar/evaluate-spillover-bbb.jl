@@ -76,7 +76,7 @@ logme("Starting evaluation")
     # mixing
     df = DataFrame(
         "net" => netid, 
-        "rep" => rep,
+        "rep" => rep
     )
 
     # Analysing coefficients
@@ -118,5 +118,3 @@ logme("Starting evaluation")
     CSV.write("evaluations-spillover/bbb-stats-net$netid-rep$rep.csv", df)
     logme("Done with net $netid rep $rep")
 end
-
-Distributed.rmprocs(workers())

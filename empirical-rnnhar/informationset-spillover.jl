@@ -142,7 +142,7 @@ logme("Starting with BBB")
     netid, rep = information[i]
     logme("BBB: Starting with network $netid repetition $rep")
     try
-        net = network_structures[1]
+        net = network_structures[netid]
         bnn = get_bnn(net, x_train, y_train, idx_daily, idx_weekly, idx_monthly)
         Random.seed!(6150533 + rep)
         vi = bbb(bnn, 100, 1000; mc_samples = 1, showprogress = false, 
