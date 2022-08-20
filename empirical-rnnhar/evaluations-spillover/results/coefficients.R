@@ -29,6 +29,9 @@ read_data <- function(f){
 ggmc <- do.call(rbind, lapply(files_ggmc, read_data))
 ggmc <- as_tibble(ggmc)
 
+# - runs of same network result in very different coefficient paths
+# - Above is not related to performance
+# - standardised paths look more similar but not as similar as for GGMC
 bbb <- do.call(rbind, lapply(files_bbb, read_data))
 bbb <- as_tibble(bbb)
 
@@ -36,11 +39,16 @@ bbb <- as_tibble(bbb)
 # this might be due to the multimodality
 # how does this relate to performance?
 # Fact holds for all variables
-ggmc %>%
-  filter(netid == 4) %>%
+p <- ggmc %>%
+  filter(netid == 2) %>%
   mutate(group = paste0(netid, "/", rep)) %>%
-  ggplot(aes(x = time, y = intercept, group = group)) + 
-  geom_line(alpha = 0.1)
+  ggplot(aes(x = time, y = intercept, color = group)) + 
+  geom_line(alpha = 1) + 
+  xlab("") + ylab("Intercept Coefficient") +
+  theme_bw() + 
+  theme(legend.position = "none")
+p
+ggsave("./varying-coefficients.pdf", plot = p, device = "pdf", width = 15, height = 7)
 
 
 files <- list.files(path)
@@ -105,13 +113,44 @@ best %>%
 # There always seem to be two, maybe three groups of time variation
 # This only applies when time variation is standardised
 ggmc %>%
-  filter(netid == 1) %>%
+  filter(netid == 2) %>%
   mutate(group = paste0(netid, "/", rep)) %>%
   group_by(netid, rep) %>%
   mutate(across(.cols = c(intercept, daily, weekly, monthly),
                 .fns = function(x) (x - mean(x))/sd(x))) %>%
   ungroup() %>%
-  ggplot(aes(x = time, y = monthly)) + 
+  ggplot(aes(x = time, y = intercept)) + 
   geom_line(alpha = 1) +
   facet_wrap(vars(group))
+
+
+# Not sure how to interpret the correlations
+get_correlations <- function(group){
+  cormat <- cor(group[,1:4])
+  name <- c()
+  cnames <- colnames(cormat)
+  for (i in 2:ncol(cormat)){
+    name <- c(name, paste0(cnames[1:i-1], "_", cnames[i]))   
+  }
+  cormat <- cormat[upper.tri(cormat)]
+  names(cormat) <- name
+  return(data.frame(cor = cormat, relation = names(cormat), row.names = NULL))
+}
+
+# library(plyr)
+# variables <- c("intercept", "daily", "weekly", "monthly")
+# coeff_cors <- ddply(select(ggmc, intercept, daily, weekly, monthly, everything()), .(netid, rep), get_correlations)
+# coeff_cors %>%
+#  as_tibble() %>%
+#   mutate(netid = as.character(netid), 
+#          var1 = str_split_fixed(relation, "_", n = Inf)[, 1], 
+#          var2 = str_split_fixed(relation, "_", n = Inf)[, 2]) %>%
+#   complete(var1 = variables, 
+#            var2 = variables) %>%
+#   mutate(var1f = factor(var1, levels = variables), 
+#          var2f = factor(var2, levels = variables)) %>%
+#   ggplot() + 
+#   geom_boxplot(aes(x = netid, y = cor)) + 
+#   facet_grid(rows = vars(var1f), cols = vars(var2f), space = "free") + 
+#   theme_bw()
 

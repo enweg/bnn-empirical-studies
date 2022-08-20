@@ -28,7 +28,7 @@ baseline_var <- baseline_stats %>%
 
 
 # mixing does not seem to play an important role
-ggmc_stats %>%
+p <- ggmc_stats %>%
   mutate(net = as.character(net)) %>%
   select(net, rhat_sigma, starts_with("rmse")) %>%
   pivot_longer(starts_with("rmse"), 
@@ -47,13 +47,15 @@ ggmc_stats %>%
   ylab("RMSE") +
   theme_bw() + 
   theme(legend.position = "top")
+p
+ggsave("./rmse_mixing.pdf", plot = p, device = "pdf", width = 15, height = 7)
 
 stats <- rbind(select(ggmc_stats, -rhat_sigma), bbb_stats)
 
 # GGMC performs clearly better for log RV
 # Performance seems to be almost the same for RV in levels 
 # GGMC is much more consistent with performance though, shown by narrower boxes
-stats %>%
+p <- stats %>%
   mutate(net = as.character(net)) %>%
   select(net, method, starts_with("rmse")) %>%
   pivot_longer(starts_with("rmse"), 
@@ -71,6 +73,8 @@ stats %>%
   ylab("RMSE") +
   theme_bw() + 
   theme(legend.position = "top")
+p
+ggsave("./performance_rmse.pdf", plot = p, device = "pdf", width = 15, height = 7)
 
 var_translate = c(
   "VaR_0_1" = "VaR 0.1%", 
@@ -91,7 +95,7 @@ var_ordering <- c("VaR 0.1%", "VaR 1%", "VaR 5%", "VaR 10%")
 # Both not good for VaR
 # BBB performance sensitive to network while GGMC performance 
 # is consistent
-stats %>%
+p <- stats %>%
   mutate(net = as.character(net)) %>%
   select(net, method, starts_with("VaR")) %>%
   pivot_longer(starts_with("VaR"), 
@@ -112,3 +116,5 @@ stats %>%
   xlab("Network ID") + ylab("% test data falling below VaR") +
   theme_bw() + 
   theme(legend.position = "top")
+p
+ggsave('./performance_var.pdf', plot = p, device = "pdf", width = 15, height = 7)

@@ -43,11 +43,16 @@ bbb <- as_tibble(bbb)
 # this might be due to the multimodality
 # how does this relate to performance?
 # Fact holds for all variables
-ggmc %>%
+p <- ggmc %>%
   filter(netid == 4) %>%
   mutate(group = paste0(netid, "/", rep)) %>%
-  ggplot(aes(x = time, y = intercept, group = group)) + 
-  geom_line(alpha = 0.1)
+  ggplot(aes(x = time, y = intercept, color = group)) + 
+  geom_line(alpha = 1) + 
+  xlab("") + ylab("Intercept Coefficient") + 
+  theme_bw() + 
+  theme(legend.position = "none")
+p
+ggsave("./varying_coefficients.pdf", plot = p, device = "pdf", width = 15, height = 7)
 
 # If intercept is very noisy, all others will be very noisy
 # too or will have very little variation
@@ -149,8 +154,8 @@ best %>%
 
 # There always seem to be two, maybe three groups of time variation
 # This only applies when time variation is standardised
-ggmc %>%
-  filter(netid == 1) %>%
+p <- ggmc %>%
+  # filter(netid == 1) %>%
   mutate(group = paste0(netid, "/", rep)) %>%
   group_by(netid, rep) %>%
   mutate(across(.cols = c(intercept, daily, weekly, monthly),
@@ -158,5 +163,25 @@ ggmc %>%
   ungroup() %>%
   ggplot(aes(x = time, y = monthly)) + 
   geom_line(alpha = 1) +
-  facet_wrap(vars(group))
+  facet_grid(cols = vars(rep), rows = vars(netid), scales = "free") + 
+  xlab("") + ylab("Monthly Coefficient") +
+  theme_bw()
+  # facet_wrap(vars(group))
+p
+ggsave("./coeffs_standardised.pdf", plot = p, device = "pdf", width = 25, height = 7)
 
+p <- ggmc %>%
+  # filter(netid == 1) %>%
+  mutate(group = paste0(netid, "/", rep)) %>%
+  group_by(netid, rep) %>%
+  # mutate(across(.cols = c(intercept, daily, weekly, monthly),
+  #               .fns = function(x) (x - mean(x))/sd(x))) %>%
+  ungroup() %>%
+  ggplot(aes(x = time, y = monthly)) + 
+  geom_line(alpha = 1) +
+  facet_grid(cols = vars(rep), rows = vars(netid), scales = "free") + 
+  xlab("") + ylab("Monthly Coefficient") +
+  theme_bw()
+  # facet_wrap(vars(group))
+p
+ggsave("./coeffs_raw.pdf", plot = p, device = "pdf", width = 25, height = 7)

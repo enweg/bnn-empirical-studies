@@ -50,10 +50,9 @@ ggmc_stats %>%
 
 stats <- rbind(select(ggmc_stats, -rhat_sigma), bbb_stats)
 
-# GGMC performs clearly better for log RV
-# Performance seems to be almost the same for RV in levels 
-# GGMC is much more consistent with performance though, shown by narrower boxes
-stats %>%
+# GGMC performs clearly better than BBB
+# GGMC performs slightly better than HAR in log but not level terms
+p <- stats %>%
   mutate(net = as.character(net)) %>%
   select(net, method, starts_with("rmse")) %>%
   pivot_longer(starts_with("rmse"), 
@@ -61,6 +60,7 @@ stats %>%
                names_sep = "_") %>%
   mutate(transform = ifelse(transform == "level", "RV", "log(RV)")) %>%
   left_join(baseline_rmse, by = "transform") %>%
+  # filter(method == "GGMC") %>%
   ggplot(aes(x = net, y = rmse)) + 
   geom_boxplot() + 
   geom_hline(aes(yintercept = har_rmse, color = "HAR Benchmark")) + 
@@ -71,6 +71,9 @@ stats %>%
   ylab("RMSE") +
   theme_bw() + 
   theme(legend.position = "top")
+p
+ggsave("./performance_rmse.pdf", plot = p, device = "pdf", width = 15, height = 7)
+# ggsave("./performance_rmse_nobbb.pdf", plot = p, device = "pdf", width = 15, height = 7)
 
 var_translate = c(
   "VaR_0_1" = "VaR 0.1%", 
@@ -88,10 +91,11 @@ var_target = c(
 
 var_ordering <- c("VaR 0.1%", "VaR 1%", "VaR 5%", "VaR 10%")
 
-# Both not good for VaR
-# BBB performance sensitive to network while GGMC performance 
-# is consistent
-stats %>%
+# - BBB clearly results in much too wide intervals
+# - GGMC performs in-line with HAR but fails to outperform the simple model
+# - GGMC seems to have in general too fat tails with much more data falling below
+# the VaR than should be. 
+p <- stats %>%
   mutate(net = as.character(net)) %>%
   select(net, method, starts_with("VaR")) %>%
   pivot_longer(starts_with("VaR"), 
@@ -112,3 +116,5 @@ stats %>%
   xlab("Network ID") + ylab("% test data falling below VaR") +
   theme_bw() + 
   theme(legend.position = "top")
+p
+ggsave("./performance_var.pdf", plot = p, device = "pdf", width = 15, height = 7)

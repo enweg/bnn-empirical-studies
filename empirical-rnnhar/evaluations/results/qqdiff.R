@@ -44,7 +44,7 @@ qperformance <- qperformance %>%
 # - qqperformance is better for or more consistent for GGMC 
 # estimated models 
 # - Both models seem to especially struggle in the 10 to 60% range
-qperformance %>%
+p <- qperformance %>%
   ggplot(aes(x = target)) + 
   geom_line(aes(y = observed, group = rep), alpha = 0.3) + 
   geom_line(aes(y = har_qq, color = "HAR Benchmark"), linetype = "dotted", size = 1) +
@@ -57,11 +57,13 @@ qperformance %>%
   guides(color = guide_legend(title = "")) +
   theme_bw() + 
   theme(legend.position = "top")
+p
+ggsave("./qq_plot.pdf", plot = p, device = "pdf", width = 15, height = 7)
 
 #  - Netowrk does not make a difference for GGMC but for BBB
 # - For some reasons larger RNN network consistently bad results using BBB 
 # but not using GGMC
-qperformance %>%
+p <- qperformance %>%
   group_by(netid, rep, method) %>%
   summarise(qqdiff = sum(abs(target - observed)), 
             har_qqdiff = sum(abs(target - har_qq)),
@@ -76,4 +78,5 @@ qperformance %>%
   xlab("Network ID") + 
   theme_bw() + 
   theme(legend.position = "top")
-
+p
+ggsave("./qq_diff.pdf", plot = p, device = "pdf", width = 15, height = 7)
