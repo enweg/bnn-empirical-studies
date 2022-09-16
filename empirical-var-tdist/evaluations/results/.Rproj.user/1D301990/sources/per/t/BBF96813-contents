@@ -1,12 +1,12 @@
 library(tidyverse)
 
-benchmark <- read_csv("../garch11-baseline.csv")
+benchmark <- read_csv("../tdist-garch11-baseline.csv")
 single_chain <- read_csv("../mcmc-single-chain-evaluation-all.csv")
 same_network <- read_csv("../mcmc-same-network-evaluation-all.csv")
 bbb <- read_csv("../bbb-single-asset-all.csv")
 
 benchmark_long <- benchmark %>%
-  pivot_longer(cols = everything(), 
+  pivot_longer(-nu, 
                names_to = "measure", 
                values_to = "garch")
 
@@ -31,13 +31,13 @@ single_chain_comparison <- single_chain %>%
                names_to = "measure", 
                values_to = "values") %>%
   filter(measure != "rhat_sigma") %>%
-  left_join(benchmark_long, by = "measure")
+  left_join(benchmark_long, by = c("measure", "nu"))
 
 same_network_evaluation <- same_network %>%
   pivot_longer(-network, 
                names_to = "measure", 
                values_to = "values") %>%
-  left_join(benchmark_long, by = "measure") %>%
+  left_join(benchmark_long, by = c("measure")) %>%
   filter(!measure %in% c("rhat_sigma", "rmse", "mape")) %>%
   mutate(network = factor(network, levels = sort(unique(network))))
 
@@ -76,7 +76,7 @@ p_single_chain <- single_chain_comparison %>%
   theme(legend.position = "top")
 
 p_single_chain
-ggsave("./single-asset-single-chain.pdf", 
+ggsave("./single-asset-single-chain-tgarch.pdf", 
        plot = p_single_chain, 
        device = "pdf")
 
@@ -86,7 +86,7 @@ single_chain_comparison %>%
   summarise(min = min(values), 
             max = max(values), 
             mean = mean(values)) %>%
-  write_csv(., file = "./single-asset-nu-rmse.csv")
+  write_csv(., file = "./single-asset-nu-rmse-tgarch.csv")
 
 p_same_network <- same_network_evaluation %>%
   left_join(bbb_network, by = c("network", "measure")) %>%
@@ -95,7 +95,7 @@ p_same_network <- same_network_evaluation %>%
   mutate(kind = ifelse(as.numeric(network) <= 2, "RNN", "LSTM")) %>%
   ggplot(aes(x = network, y = values)) + 
   geom_col(aes(fill = kind),position = "dodge2", width = 0.7, alpha = 0.5) + 
-  geom_hline(aes(yintercept = garch, color = "Garch(1, 1)"), size = 1) + 
+  geom_hline(aes(yintercept = garch, color = "Garch(1, 1)", group = nu), size = 0.5) + 
   geom_hline(aes(yintercept = target, color = "Target"), size = 1, linetype = "dotted") + 
   geom_point(aes(y = bbb, color = "BBB"), shape = 4) +
   facet_wrap(vars(measure), scales = "free") + 
@@ -108,7 +108,7 @@ p_same_network <- same_network_evaluation %>%
   theme(legend.position = "top")
 
 p_same_network
-ggsave("./single-asset-same-network.pdf", 
+ggsave("./single-asset-same-network-tgarch.pdf", 
        plot = p_same_network, 
        device = "pdf")
 
