@@ -1,4 +1,18 @@
+rm(list = ls())
 library(tidyverse)
+var_translate = c(
+  "VaR_0_1" = "VaR 0.1%", 
+  "VaR_1_0" = "VaR 1%", 
+  "VaR_5_0" = "VaR 5%", 
+  "VaR_10_0" = "VaR 10%"
+)
+
+var_target = c(
+  "VaR_0_1" = 0.001, 
+  "VaR_1_0" = 0.01, 
+  "VaR_5_0" = 0.05, 
+  "VaR_10_0" = 0.1
+)
 
 benchmark <- read_csv("../tdist-garch11-baseline.csv")
 single_chain <- read_csv("../mcmc-single-chain-evaluation-all.csv")
@@ -9,6 +23,16 @@ benchmark_long <- benchmark %>%
   pivot_longer(-nu, 
                names_to = "measure", 
                values_to = "garch")
+
+benchmark_best <- benchmark_long %>%
+  mutate(target = var_target[measure], 
+         diff = abs(garch - target)) %>%
+  group_by(measure) %>%
+  arrange(diff) %>%
+  mutate(rank = 1:n()) %>%
+  ungroup() %>%
+  filter(rank == 1) %>%
+  select(nu, measure, garch)
 
 bbb_long <- bbb %>%
   pivot_longer(-c(network, nu), 
@@ -37,23 +61,10 @@ same_network_evaluation <- same_network %>%
   pivot_longer(-network, 
                names_to = "measure", 
                values_to = "values") %>%
-  left_join(benchmark_long, by = c("measure")) %>%
+  left_join(benchmark_best, by = c("measure")) %>%
   filter(!measure %in% c("rhat_sigma", "rmse", "mape")) %>%
   mutate(network = factor(network, levels = sort(unique(network))))
 
-var_translate = c(
-  "VaR_0_1" = "VaR 0.1%", 
-  "VaR_1_0" = "VaR 1%", 
-  "VaR_5_0" = "VaR 5%", 
-  "VaR_10_0" = "VaR 10%"
-)
-
-var_target = c(
-  "VaR_0_1" = 0.001, 
-  "VaR_1_0" = 0.01, 
-  "VaR_5_0" = 0.05, 
-  "VaR_10_0" = 0.1
-)
 
 p_single_chain <- single_chain_comparison %>%
   left_join(bbb_nu, by = c("nu", "measure")) %>%
